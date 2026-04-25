@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Опрос</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+      background: #f0f2f5;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      margin: 0;
+    }
+    .container {
+      background: white;
+      border-radius: 16px;
+      padding: 32px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+      text-align: center;
+      max-width: 320px;
+      width: 90%;
+    }
+    h1 { font-size: 1.2em; margin-bottom: 24px; }
+    .buttons {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .answer-btn {
+      background: #2c7be5;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      padding: 12px;
+      font-size: 1em;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .answer-btn:hover { background: #1a5dc7; }
+    .answer-btn:active { background: #1548a0; }
+    #status {
+      margin-top: 20px;
+      font-weight: bold;
+      color: #28a745;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Какой язык программирования вы предпочитаете?</h1>
+    <div class="buttons">
+      <button id="btn-js" class="answer-btn">JavaScript</button>
+      <button id="btn-py" class="answer-btn">Python</button>
+    </div>
+    <p id="status"></p>
+  </div>
+
+  <script>
+    // Получаем параметры из URL
+    const params = new URLSearchParams(window.location.search);
+    const CHAT_ID = params.get('chat_id');
+    const TOKEN = params.get('token');
+    const API_BASE = 'https://platform-api.max.ru';
+
+    async function sendAnswer(answerText) {
+      if (!CHAT_ID || !TOKEN) {
+        showStatus('Ошибка: не указаны chat_id или token', true);
+        return;
+      }
+      try {
+        const res = await fetch(`${API_BASE}/messages`, {
+          method: 'POST',
+          headers: {
+            'Authorization': TOKEN,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            chat_id: CHAT_ID,
+            text: `Пользователь выбрал: ${answerText}`
+          })
+        });
+        if (res.ok) {
+          showStatus('Ответ отправлен!');
+          setTimeout(() => window.close(), 1500);
+        } else {
+          const err = await res.text();
+          showStatus(`Ошибка: ${res.status} ${err}`, true);
+        }
+      } catch (error) {
+        showStatus(`Сетевая ошибка: ${error.message}`, true);
+      }
+    }
+
+    function showStatus(message, isError = false) {
+      const statusEl = document.getElementById('status');
+      statusEl.textContent = message;
+      statusEl.style.color = isError ? '#dc3545' : '#28a745';
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      document.getElementById('btn-js').addEventListener('click', () => sendAnswer('JavaScript'));
+      document.getElementById('btn-py').addEventListener('click', () => sendAnswer('Python'));
+    });
+  </script>
+</body>
+</html>
