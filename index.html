@@ -3,107 +3,391 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Опрос</title>
+  <title>Запись в салон красоты</title>
   <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
-      font-family: -apple-system, BlinkMacSystemFont, sans-serif;
-      background: #f0f2f5;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #f8f0f2;
       display: flex;
       justify-content: center;
       align-items: center;
-      height: 100vh;
-      margin: 0;
+      min-height: 100vh;
+      padding: 16px;
     }
     .container {
       background: white;
-      border-radius: 16px;
-      padding: 32px;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-      text-align: center;
-      max-width: 320px;
-      width: 90%;
+      border-radius: 20px;
+      padding: 32px 24px;
+      box-shadow: 0 8px 30px rgba(0,0,0,0.08);
+      max-width: 400px;
+      width: 100%;
     }
-    h1 { font-size: 1.2em; margin-bottom: 24px; }
-    .buttons {
+    h2 { text-align: center; margin-bottom: 24px; color: #b76e79; }
+    .step { display: none; }
+    .step.active { display: block; }
+    .services, .timeslots {
       display: flex;
-      flex-direction: column;
-      gap: 12px;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin: 16px 0;
     }
-    .answer-btn {
-      background: #2c7be5;
+    .service, .timeslot {
+      flex: 1 1 calc(50% - 10px);
+      padding: 14px;
+      border: 2px solid #e0d0d3;
+      border-radius: 12px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.2s;
+      font-size: 0.95em;
+    }
+    .service:hover, .timeslot:hover { border-color: #b76e79; background: #fdf7f8; }
+    .service.selected, .timeslot.selected {
+      border-color: #b76e79;
+      background: #f5e6e9;
+      font-weight: 600;
+    }
+    .timeslot { flex: 1 1 calc(33.333% - 10px); }
+    .timeslot.unavailable {
+      border-color: #ddd;
+      background: #f5f5f5;
+      color: #aaa;
+      cursor: not-allowed;
+      text-decoration: line-through;
+    }
+    .date-grid {
+      display: flex;
+      gap: 8px;
+      overflow-x: auto;
+      padding: 8px 0 16px;
+    }
+    .date-btn {
+      flex: 0 0 auto;
+      padding: 12px 16px;
+      border: 2px solid #e0d0d3;
+      border-radius: 12px;
+      background: white;
+      cursor: pointer;
+      text-align: center;
+      min-width: 70px;
+    }
+    .date-btn.selected { border-color: #b76e79; background: #f5e6e9; }
+    .date-btn .day { font-size: 0.8em; color: #888; }
+    .date-btn .date { font-size: 1.1em; font-weight: 600; }
+    input, textarea {
+      width: 100%;
+      padding: 12px;
+      border: 2px solid #e0d0d3;
+      border-radius: 12px;
+      margin: 8px 0 16px;
+      font-size: 1em;
+      outline: none;
+    }
+    input:focus, textarea:focus { border-color: #b76e79; }
+    .btn {
+      width: 100%;
+      padding: 14px;
+      background: #b76e79;
       color: white;
       border: none;
-      border-radius: 8px;
-      padding: 12px;
-      font-size: 1em;
+      border-radius: 12px;
+      font-size: 1.1em;
       cursor: pointer;
-      transition: background 0.2s;
+      margin-top: 8px;
     }
-    .answer-btn:hover { background: #1a5dc7; }
-    .answer-btn:active { background: #1548a0; }
-    #status {
-      margin-top: 20px;
-      font-weight: bold;
-      color: #28a745;
-    }
+    .btn:disabled { background: #ccc; cursor: not-allowed; }
+    .nav-buttons { display: flex; gap: 10px; }
+    .nav-buttons .btn { flex: 1; }
+    .back-btn { background: #ddd; color: #333; }
+    .confirmation { background: #e6f4ea; padding: 16px; border-radius: 12px; margin: 16px 0; }
+    .error { color: #c0392b; margin-top: 12px; text-align: center; }
   </style>
 </head>
 <body>
-  <div class="container">
-    <h1>Какой язык программирования вы предпочитаете?</h1>
-    <div class="buttons">
-      <button id="btn-js" class="answer-btn">JavaScript</button>
-      <button id="btn-py" class="answer-btn">Python</button>
+  <div class="container" id="app">
+    <!-- Шаг 1: Выбор услуги -->
+    <div class="step active" id="step-service">
+      <h2>Выберите услугу</h2>
+      <div class="services" id="services-list"></div>
+      <button class="btn" id="to-date" disabled>Далее</button>
+      <div class="error" id="service-error"></div>
     </div>
-    <p id="status"></p>
+
+    <!-- Шаг 2: Выбор даты -->
+    <div class="step" id="step-date">
+      <h2>Выберите дату</h2>
+      <div class="date-grid" id="date-grid"></div>
+      <h3 style="margin-top:16px;">Свободное время</h3>
+      <div class="timeslots" id="timeslots-list">Загрузка...</div>
+      <div class="nav-buttons">
+        <button class="btn back-btn" id="back-from-date">Назад</button>
+        <button class="btn" id="to-contacts" disabled>Далее</button>
+      </div>
+      <div class="error" id="date-error"></div>
+    </div>
+
+    <!-- Шаг 3: Контактные данные -->
+    <div class="step" id="step-contacts">
+      <h2>Ваши данные</h2>
+      <input type="text" id="client-name" placeholder="Ваше имя">
+      <input type="tel" id="client-phone" placeholder="Телефон">
+      <textarea id="client-note" rows="2" placeholder="Пожелания (необязательно)"></textarea>
+      <div class="nav-buttons">
+        <button class="btn back-btn" id="back-from-contacts">Назад</button>
+        <button class="btn" id="to-confirm">Далее</button>
+      </div>
+      <div class="error" id="contacts-error"></div>
+    </div>
+
+    <!-- Шаг 4: Подтверждение -->
+    <div class="step" id="step-confirm">
+      <h2>Подтверждение записи</h2>
+      <div class="confirmation" id="summary"></div>
+      <div class="nav-buttons">
+        <button class="btn back-btn" id="back-from-confirm">Назад</button>
+        <button class="btn" id="submit-booking">Подтвердить запись</button>
+      </div>
+      <div class="error" id="confirm-error"></div>
+    </div>
+
+    <!-- Шаг 5: Готово -->
+    <div class="step" id="step-done">
+      <h2>✅ Запись подтверждена!</h2>
+      <p style="text-align:center; margin:16px 0;">Мы свяжемся с вами в ближайшее время.</p>
+      <button class="btn" id="close-app">Закрыть</button>
+    </div>
   </div>
 
   <script>
-    // Получаем параметры из URL
-    const params = new URLSearchParams(window.location.search);
-    const CHAT_ID = params.get('chat_id');
-    const TOKEN = params.get('token');
-    const API_BASE = 'https://platform-api.max.ru';
+    // === НАСТРОЙКИ ===
+    const PROXY_URL = 'https://script.google.com/macros/s/ВАШ_SCRIPT_ID/exec'; // URL веб-приложения Apps Script
 
-    async function sendAnswer(answerText) {
-      if (!CHAT_ID || !TOKEN) {
-        showStatus('Ошибка: не указаны chat_id или token', true);
-        return;
+    // === СОСТОЯНИЕ ===
+    const state = {
+      service: null,
+      date: null,   // строка YYYY-MM-DD
+      time: null,
+      name: '',
+      phone: '',
+      note: ''
+    };
+
+    // === ТЕСТОВЫЕ УСЛУГИ ===
+    const services = [
+      { id: 'haircut', name: 'Стрижка женская', duration: 60, price: '2500 ₽' },
+      { id: 'color', name: 'Окрашивание', duration: 120, price: '5000 ₽' },
+      { id: 'manicure', name: 'Маникюр', duration: 45, price: '1800 ₽' },
+      { id: 'pedicure', name: 'Педикюр', duration: 60, price: '2200 ₽' },
+      { id: 'massage', name: 'Массаж спины', duration: 30, price: '1500 ₽' },
+      { id: 'cosmetology', name: 'Консультация косметолога', duration: 30, price: 'бесплатно' }
+    ];
+
+    // Все возможные слоты (интервалы 30 мин)
+    const ALL_SLOTS = [];
+    for (let h = 10; h < 18; h++) {
+      for (let m of ['00', '30']) {
+        if (h === 17 && m === '30') continue; // последний слот в 17:30
+        ALL_SLOTS.push(`${h}:${m}`);
       }
+    }
+
+    // === ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ===
+    function showStep(stepId) {
+      document.querySelectorAll('.step').forEach(el => el.classList.remove('active'));
+      document.getElementById(stepId).classList.add('active');
+    }
+
+    function formatDate(dateStr) {
+      const d = new Date(dateStr + 'T00:00:00');
+      return d.toLocaleDateString('ru-RU', { weekday: 'short', day: 'numeric', month: 'long' });
+    }
+
+    // === ЗАГРУЗКА ДАННЫХ ===
+    document.addEventListener('DOMContentLoaded', () => {
+      // Генерируем список услуг
+      const svcContainer = document.getElementById('services-list');
+      services.forEach(s => {
+        const div = document.createElement('div');
+        div.className = 'service';
+        div.innerHTML = `<strong>${s.name}</strong><br><small>${s.duration} мин · ${s.price}</small>`;
+        div.dataset.id = s.id;
+        div.addEventListener('click', () => selectService(s, div));
+        svcContainer.appendChild(div);
+      });
+
+      // Навигация: кнопка "Далее" на шаге 1
+      document.getElementById('to-date').addEventListener('click', () => {
+        if (!state.service) {
+          document.getElementById('service-error').textContent = 'Выберите услугу';
+          return;
+        }
+        showStep('step-date');
+        generateDates();
+      });
+
+      // Кнопки назад
+      document.getElementById('back-from-date').addEventListener('click', () => showStep('step-service'));
+      document.getElementById('back-from-contacts').addEventListener('click', () => showStep('step-date'));
+      document.getElementById('back-from-confirm').addEventListener('click', () => showStep('step-contacts'));
+
+      // Кнопка "Далее" со шага 2 (выбор времени)
+      document.getElementById('to-contacts').addEventListener('click', () => {
+        if (!state.date || !state.time) {
+          document.getElementById('date-error').textContent = 'Выберите дату и время';
+          return;
+        }
+        showStep('step-contacts');
+      });
+
+      // Кнопка "Далее" со шага 3 (контакты)
+      document.getElementById('to-confirm').addEventListener('click', () => {
+        state.name = document.getElementById('client-name').value.trim();
+        state.phone = document.getElementById('client-phone').value.trim();
+        state.note = document.getElementById('client-note').value.trim();
+        if (!state.name || !state.phone) {
+          document.getElementById('contacts-error').textContent = 'Введите имя и телефон';
+          return;
+        }
+        if (!/^\+?\d{10,12}$/.test(state.phone.replace(/[\s()-]/g,''))) {
+          document.getElementById('contacts-error').textContent = 'Введите корректный телефон';
+          return;
+        }
+        document.getElementById('contacts-error').textContent = '';
+        // Показываем сводку
+        document.getElementById('summary').innerHTML = `
+          <p><strong>Услуга:</strong> ${state.service.name} (${state.service.price})</p>
+          <p><strong>Дата:</strong> ${formatDate(state.date)}</p>
+          <p><strong>Время:</strong> ${state.time}</p>
+          <p><strong>Имя:</strong> ${state.name}</p>
+          <p><strong>Телефон:</strong> ${state.phone}</p>
+          ${state.note ? `<p><strong>Пожелания:</strong> ${state.note}</p>` : ''}
+        `;
+        showStep('step-confirm');
+      });
+
+      // Кнопка "Подтвердить запись"
+      document.getElementById('submit-booking').addEventListener('click', submitBooking);
+
+      // Кнопка "Закрыть"
+      document.getElementById('close-app').addEventListener('click', () => {
+        // Попытка закрыть мини-приложение (работает в MAX)
+        if (window.Telegram?.WebApp?.close) {
+          window.Telegram.WebApp.close();
+        } else {
+          window.close();
+        }
+      });
+    });
+
+    function selectService(service, element) {
+      document.querySelectorAll('.service').forEach(el => el.classList.remove('selected'));
+      element.classList.add('selected');
+      state.service = service;
+      document.getElementById('to-date').disabled = false;
+      document.getElementById('service-error').textContent = '';
+    }
+
+    // Генерация дат на 7 дней вперед (кроме воскресенья)
+    function generateDates() {
+      const grid = document.getElementById('date-grid');
+      grid.innerHTML = '';
+      const today = new Date();
+      let daysAdded = 0;
+      for (let i = 0; daysAdded < 7; i++) {
+        const d = new Date(today);
+        d.setDate(today.getDate() + i);
+        if (d.getDay() === 0) continue; // воскресенье – выходной
+        const dateStr = d.toISOString().slice(0,10);
+        const btn = document.createElement('div');
+        btn.className = 'date-btn';
+        btn.innerHTML = `<div class="day">${d.toLocaleDateString('ru-RU',{weekday:'short'})}</div>
+                         <div class="date">${d.getDate()}</div>`;
+        btn.dataset.date = dateStr;
+        btn.addEventListener('click', () => {
+          document.querySelectorAll('.date-btn').forEach(el => el.classList.remove('selected'));
+          btn.classList.add('selected');
+          state.date = dateStr;
+          state.time = null;
+          document.getElementById('to-contacts').disabled = true;
+          loadTimeSlots(dateStr);
+        });
+        grid.appendChild(btn);
+        daysAdded++;
+      }
+      // Сброс
+      state.date = null;
+      state.time = null;
+      document.getElementById('timeslots-list').textContent = 'Выберите дату';
+    }
+
+    // Загрузка занятых слотов с сервера
+    async function loadTimeSlots(date) {
+      const container = document.getElementById('timeslots-list');
+      container.textContent = 'Загрузка...';
       try {
-        const res = await fetch(`${API_BASE}/messages`, {
+        const res = await fetch(`${PROXY_URL}?action=slots&date=${date}`);
+        if (!res.ok) throw new Error('Ошибка сервера');
+        const data = await res.json();
+        const booked = data.booked || [];
+        renderTimeSlots(booked);
+      } catch (err) {
+        container.innerHTML = '<span style="color:red">Не удалось загрузить слоты</span>';
+      }
+    }
+
+    function renderTimeSlots(booked) {
+      const container = document.getElementById('timeslots-list');
+      container.innerHTML = '';
+      ALL_SLOTS.forEach(slot => {
+        const div = document.createElement('div');
+        div.className = 'timeslot';
+        div.textContent = slot;
+        if (booked.includes(slot)) {
+          div.classList.add('unavailable');
+          div.title = 'Занято';
+        } else {
+          div.addEventListener('click', () => {
+            document.querySelectorAll('.timeslot').forEach(el => el.classList.remove('selected'));
+            div.classList.add('selected');
+            state.time = slot;
+            document.getElementById('to-contacts').disabled = false;
+            document.getElementById('date-error').textContent = '';
+          });
+        }
+        container.appendChild(div);
+      });
+    }
+
+    // Отправка бронирования
+    async function submitBooking() {
+      const btn = document.getElementById('submit-booking');
+      btn.disabled = true;
+      btn.textContent = 'Отправка...';
+      try {
+        const res = await fetch(PROXY_URL, {
           method: 'POST',
-          headers: {
-            'Authorization': TOKEN,
-            'Content-Type': 'application/json'
-          },
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            chat_id: CHAT_ID,
-            text: `Пользователь выбрал: ${answerText}`
+            action: 'book',
+            service: state.service,
+            date: state.date,
+            time: state.time,
+            clientName: state.name,
+            clientPhone: state.phone,
+            clientNote: state.note
           })
         });
-        if (res.ok) {
-          showStatus('Ответ отправлен!');
-          setTimeout(() => window.close(), 1500);
-        } else {
-          const err = await res.text();
-          showStatus(`Ошибка: ${res.status} ${err}`, true);
-        }
-      } catch (error) {
-        showStatus(`Сетевая ошибка: ${error.message}`, true);
+        const result = await res.json();
+        if (!result.ok) throw new Error(result.error || 'Ошибка');
+        showStep('step-done');
+      } catch (err) {
+        document.getElementById('confirm-error').textContent = err.message;
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Подтвердить запись';
       }
     }
-
-    function showStatus(message, isError = false) {
-      const statusEl = document.getElementById('status');
-      statusEl.textContent = message;
-      statusEl.style.color = isError ? '#dc3545' : '#28a745';
-    }
-
-    document.addEventListener('DOMContentLoaded', () => {
-      document.getElementById('btn-js').addEventListener('click', () => sendAnswer('JavaScript'));
-      document.getElementById('btn-py').addEventListener('click', () => sendAnswer('Python'));
-    });
   </script>
 </body>
 </html>
